@@ -2,6 +2,7 @@ import type { Bot, Context } from 'grammy';
 import { processWithOrchestrator } from '../ai/orchestrator.js';
 import { runResearchAgent } from '../ai/research-agent.js';
 import { processMemoryRequest } from '../ai/memory-manager.js';
+import { isOnboarding, processOnboardingResponse } from '../ai/onboarding.js';
 import { logger } from '../logger.js';
 import { isAdmin } from '../utils/auth.js';
 import { addMessage, formatHistoryForPrompt } from '../utils/conversation.js';
@@ -15,6 +16,18 @@ export function registerFreeText(bot: Bot): void {
     if (!text || text.startsWith('/')) return;
 
     const chatId = String(ctx.chat?.id);
+
+    // Handle onboarding flow
+    if (isOnboarding(chatId)) {
+      try {
+        const result = await processOnboardingResponse(chatId, text);
+        await ctx.reply(result.reply);
+      } catch (error) {
+        logger.error({ error }, 'Onboarding response failed');
+        await ctx.reply('Erreur pendant l\'onboarding. Renvoie ton message.');
+      }
+      return;
+    }
 
     try {
       addMessage(chatId, 'user', text);
