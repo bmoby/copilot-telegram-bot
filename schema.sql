@@ -38,10 +38,13 @@ CREATE TABLE IF NOT EXISTS daily_plans (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   date DATE UNIQUE NOT NULL,
   plan JSONB NOT NULL DEFAULT '[]',
+  live_plan JSONB,
   status TEXT NOT NULL DEFAULT 'generated'
     CHECK (status IN ('generated', 'active', 'completed')),
   review TEXT,
   productivity_score INTEGER CHECK (productivity_score BETWEEN 1 AND 10),
+  revision_count INTEGER DEFAULT 0,
+  last_reorganized_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

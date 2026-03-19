@@ -1,6 +1,8 @@
 import { getCoreMemory, getWorkingMemory, computeDecay, type MemoryEntry } from '../db/memory.js';
 import { getActiveTasks } from '../db/tasks.js';
 import { getClientPipeline } from '../db/clients.js';
+import { getTodayLivePlan } from '../db/daily-plans.js';
+import type { LivePlanTask } from '../types/index.js';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
 
@@ -18,9 +20,10 @@ export async function buildContext(options?: BuildContextOptions): Promise<strin
       getWorkingMemory(),
     ]);
 
-    const [activeTasks, clients] = await Promise.all([
+    const [activeTasks, clients, livePlan] = await Promise.all([
       getActiveTasks(),
       getClientPipeline(),
+      getTodayLivePlan(),
     ]);
 
     const now = new Date();
@@ -78,6 +81,11 @@ export async function buildContext(options?: BuildContextOptions): Promise<strin
       }
     }
 
+    // Live plan for today
+    if (livePlan && livePlan.length > 0) {
+      context += formatLivePlan(livePlan);
+    }
+
     // Live tasks
     context += `TACHES ACTIVES (${activeTasks.length}) :\n`;
     if (activeTasks.length === 0) {
@@ -119,6 +127,37 @@ export async function buildContext(options?: BuildContextOptions): Promise<strin
     logger.error({ error }, 'Failed to build context');
     return 'Erreur lors de la construction du contexte. Donnees live indisponibles.';
   }
+}
+
+const LIVE_STATUS_LABEL: Record<string, string> = {
+  pending: 'A FAIRE',
+  in_progress: 'EN COURS',
+  done: 'FAIT',
+  skipped: 'SAUTE',
+  deferred: 'REPORTE',
+};
+
+function formatLivePlan(plan: LivePlanTask[]): string {
+  const pending = plan.filter((t) => t.status === 'pending' || t.status === 'in_progress');
+  const done = plan.filter((t) => t.status === 'done');
+  const skippedOrDeferred = plan.filter((t) => t.status === 'skipped' || t.status === 'deferred');
+
+  let text = `PLAN DU JOUR (${done.length}/${plan.length} fait) :\n`;
+
+  for (const t of plan) {
+    const statusLabel = LIVE_STATUS_LABEL[t.status] ?? t.status;
+    const time = t.scheduled_time ? ` [${t.scheduled_time}]` : '';
+    const est = t.estimated_minutes ? ` (${t.estimated_minutes} min)` : '';
+    const deferNote = t.deferred_to ? ` → reporte au ${t.deferred_to}` : '';
+    const skipNote = t.skip_reason ? ` (${t.skip_reason})` : '';
+    text += `  ${t.order}. [${statusLabel}] ${t.title}${time}${est}${deferNote}${skipNote}\n`;
+  }
+
+  if (pending.length > 0) {
+    text += `Prochaine tache prevue : ${pending[0]!.title}\n`;
+  }
+  text += '\n';
+  return text;
 }
 
 function formatEntries(entries: MemoryEntry[]): string {

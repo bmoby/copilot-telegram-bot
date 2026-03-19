@@ -10,10 +10,61 @@ import {
   cancelActiveReminders,
   getTodayReminders,
 } from '../db/reminders.js';
+import { getActiveTasks, getOverdueTasks } from '../db/tasks.js';
+import { getDailyPlan, saveDailyPlan, initLivePlanFromStatic } from '../db/daily-plans.js';
+import { generateDailyPlan } from '../ai/planner.js';
+import { todayDateString, getDayOfWeek } from '../utils/format.js';
 import { logger } from '../logger.js';
+
+export async function ensureDailyPlan(): Promise<void> {
+  const today = todayDateString();
+  const existing = await getDailyPlan(today);
+
+  if (existing?.live_plan) {
+    logger.info('Daily live plan already exists, skipping generation');
+    return;
+  }
+
+  try {
+    const activeTasks = await getActiveTasks();
+    const overdueTasks = await getOverdueTasks();
+
+    const planTasks = await generateDailyPlan({
+      activeTasks,
+      overdueTasks,
+      dayOfWeek: getDayOfWeek(),
+      sportDoneRecently: false,
+    });
+
+    if (planTasks.length === 0) {
+      logger.info('No tasks to plan for today');
+      return;
+    }
+
+    const livePlan = initLivePlanFromStatic(planTasks);
+
+    await saveDailyPlan({
+      date: today,
+      plan: planTasks,
+      live_plan: livePlan,
+      status: 'active',
+      review: null,
+      productivity_score: null,
+      revision_count: 0,
+      last_reorganized_at: null,
+    });
+
+    logger.info({ taskCount: livePlan.length }, 'Daily live plan auto-generated');
+  } catch (error) {
+    logger.error({ error }, 'Failed to auto-generate daily plan');
+  }
+}
 
 export async function planDay(): Promise<number> {
   try {
+    // Auto-generate the daily live plan
+    await ensureDailyPlan();
+
     const cancelled = await cancelActiveReminders();
     if (cancelled > 0) {
       logger.info({ cancelled }, 'Cancelled stale notifications before replanning');

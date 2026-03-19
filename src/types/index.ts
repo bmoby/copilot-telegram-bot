@@ -41,13 +41,33 @@ export interface DailyPlanTask {
   order: number;
 }
 
+export type LiveTaskStatus = 'pending' | 'in_progress' | 'done' | 'skipped' | 'deferred';
+
+export interface LivePlanTask {
+  task_id: string;
+  title: string;
+  category: TaskCategory;
+  priority: TaskPriority;
+  estimated_minutes: number | null;
+  time_slot: 'urgent' | 'important' | 'optional';
+  order: number;
+  status: LiveTaskStatus;
+  scheduled_time: string | null;  // HH:MM
+  completed_at: string | null;    // ISO timestamp
+  deferred_to: string | null;     // YYYY-MM-DD
+  skip_reason: string | null;
+}
+
 export interface DailyPlan {
   id: string;
   date: string;
   plan: DailyPlanTask[];
+  live_plan: LivePlanTask[] | null;
   status: 'generated' | 'active' | 'completed';
   review: string | null;
   productivity_score: number | null;
+  revision_count: number;
+  last_reorganized_at: string | null;
   created_at: string;
 }
 

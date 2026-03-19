@@ -1,6 +1,7 @@
 import { askClaude } from './client.js';
 import { buildContext } from './context-builder.js';
 import { runMemoryAgent } from './memory-agent.js';
+import { syncTaskCompletion } from './plan-reorganizer.js';
 import {
   createTask,
   completeTask,
@@ -36,6 +37,15 @@ REGLES :
 - Si il est apres 15h, suggere des taches legeres
 - Rappelle ses objectifs quand c'est pertinent
 
+PLAN VIVANT DE LA JOURNEE :
+- Tu vois le PLAN DU JOUR dans le contexte avec l'etat de chaque tache (A FAIRE, EN COURS, FAIT, etc.)
+- Si {ownerName} mentionne un IMPREVU, un changement d'energie, ou veut faire autre chose que prevu → utilise reorganize_plan
+- Si {ownerName} dit "aujourd'hui je vais faire X" et que X n'est pas dans le plan ou contredit les priorites → RAPPELLE les taches urgentes d'abord, puis adapte-toi s'il insiste
+- Si une tache est completee → le plan se met a jour automatiquement
+- Quand tu reponds, base-toi sur le plan pour savoir ce qui est PREVU vs ce qui a ete FAIT
+- N'hesite PAS a mentionner la progression ("t'as deja fait 3/6, bien joue !")
+- Si {ownerName} dit qu'il n'a pas d'energie ou qu'il est fatigue → reorganise avec des taches legeres en premier
+
 GESTION DE LA MEMOIRE :
 - Si {ownerName} demande de MODIFIER, AJOUTER, SUPPRIMER ou CONSULTER quelque chose dans sa memoire → utilise manage_memory
 - Un agent specialise prendra le relais pour effectuer les modifications intelligemment
@@ -46,7 +56,7 @@ FORMAT DE REPONSE (JSON strict, PAS de markdown autour) :
 {
   "actions": [
     {
-      "type": "create_task" | "complete_task" | "create_client" | "note" | "manage_memory" | "start_research",
+      "type": "create_task" | "complete_task" | "create_client" | "note" | "manage_memory" | "start_research" | "reorganize_plan",
       "data": { ... }
     }
   ],
@@ -59,6 +69,7 @@ Pour create_client : data = { "name", "need", "budget_range", "source", "busines
 Pour note : data = { "content" }
 Pour manage_memory : data = { "intent": "description de ce que l'utilisateur veut faire" }
 Pour start_research : data = { "topic", "details", "include_memory" (true/false) }
+Pour reorganize_plan : data = { "trigger": "description de ce qui provoque la reorganisation (imprevu, fatigue, changement de priorite, etc.)" }
 
 AGENT DE RECHERCHE :
 - Si {ownerName} parle de "recherche approfondie", "fais une recherche", "prepare un document sur", "analyse en profondeur" → utilise start_research
@@ -130,6 +141,10 @@ export async function processWithOrchestrator(message: string, conversationHisto
             );
             if (found) {
               await completeTask(found.id);
+              // Sync with live plan
+              syncTaskCompletion(found.id).catch((err) =>
+                logger.error({ err }, 'Failed to sync task completion with live plan')
+              );
               executedActions.push({ type: 'complete_task', data: { id: found.id, title: found.title } });
             }
           }
@@ -167,6 +182,15 @@ export async function processWithOrchestrator(message: string, conversationHisto
               topic: action.data['topic'] ?? '',
               details: action.data['details'] ?? '',
               include_memory: action.data['include_memory'] === 'true',
+            },
+          });
+          break;
+        }
+        case 'reorganize_plan': {
+          executedActions.push({
+            type: 'reorganize_plan',
+            data: {
+              trigger: action.data['trigger'] ?? '',
             },
           });
           break;
