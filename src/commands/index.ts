@@ -1,18 +1,18 @@
-import type { Bot } from 'grammy';
-import { registerPlanCommand } from './plan.js';
-import { registerTaskCommands } from './tasks.js';
-import { registerClientCommands } from './clients.js';
-import { registerNotifsCommand } from './notifs.js';
-import { registerVoiceCommand } from './voice.js';
-import { config } from '../config.js';
-import { isAdmin } from '../utils/auth.js';
-import { needsOnboarding, startOnboarding } from '../ai/onboarding.js';
-import { logger } from '../logger.js';
+import type { Bot } from "grammy";
+import { registerPlanCommand } from "./plan.js";
+import { registerTaskCommands } from "./tasks.js";
+import { registerClientCommands } from "./clients.js";
+import { registerNotifsCommand } from "./notifs.js";
+import { registerVoiceCommand } from "./voice.js";
+import { config } from "../config.js";
+import { isAdmin } from "../utils/auth.js";
+import { needsOnboarding, startOnboarding } from "../ai/onboarding.js";
+import { logger } from "../logger.js";
 
 export function registerCommands(bot: Bot): void {
-  bot.command('start', async (ctx) => {
+  bot.command("start", async (ctx) => {
     if (!isAdmin(ctx)) {
-      await ctx.reply('Ce bot est prive.');
+      await ctx.reply("Этот бот приватный.");
       return;
     }
 
@@ -25,24 +25,24 @@ export function registerCommands(bot: Bot): void {
         return;
       }
     } catch (error) {
-      logger.error({ error }, 'Onboarding check failed, showing default start');
+      logger.error({ error }, "Onboarding check failed, showing default start");
     }
 
     await ctx.reply(
-      `Salut ! Je suis ton ${config.botName}.\n\nCommandes :\n` +
-        `/plan — Plan du jour\n` +
-        `/next — Prochaine tache\n` +
-        `/done — Marquer comme fait\n` +
-        `/add [texte] — Ajouter une tache\n` +
-        `/tasks — Toutes les taches\n` +
-        `/skip — Passer la tache\n` +
-        `/clients — Pipeline clients\n` +
-        `/client [nom] — Details client\n` +
-        `/newclient [nom] — [besoin] — [budget]\n` +
-        `/notifs — Voir/regler les notifications (ex: /notifs 20)\n` +
-        `/replan — Replanifier les notifications\n` +
-        `/voice — Activer/desactiver les reponses vocales\n\n` +
-        `Ou envoie un message libre, je comprendrai.`
+      `Привет! Я — твой ${config.botName}.\n\nКоманды:\n` +
+        `/plan — План дня\n` +
+        `/next — Следующая задача\n` +
+        `/done — Отметить как выполнено\n` +
+        `/add [текст] — Добавить задачу\n` +
+        `/tasks — Все задачи\n` +
+        `/skip — Пропустить задачу\n` +
+        `/clients — Воронка клиентов\n` +
+        `/client [имя] — Детали клиента\n` +
+        `/newclient [имя] — [потребность] — [бюджет]\n` +
+        `/notifs — Посмотреть/настроить уведомления (пр: /notifs 20)\n` +
+        `/replan — Перепланировать уведомления\n` +
+        `/voice — Вкл/выкл голосовые ответы\n\n` +
+        `Или просто отправь сообщение, я пойму.`,
     );
   });
 

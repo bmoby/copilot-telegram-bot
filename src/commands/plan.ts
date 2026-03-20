@@ -1,13 +1,22 @@
-import type { Bot, Context } from 'grammy';
-import { getActiveTasks } from '../db/tasks.js';
-import { getOverdueTasks } from '../db/tasks.js';
-import { getDailyPlan, saveDailyPlan, initLivePlanFromStatic } from '../db/daily-plans.js';
-import { generateDailyPlan } from '../ai/planner.js';
-import { formatDailyPlan, formatLivePlanMessage, todayDateString, getDayOfWeek } from '../utils/format.js';
-import { isAdmin } from '../utils/auth.js';
+import type { Bot, Context } from "grammy";
+import { getActiveTasks } from "../db/tasks.js";
+import { getOverdueTasks } from "../db/tasks.js";
+import {
+  getDailyPlan,
+  saveDailyPlan,
+  initLivePlanFromStatic,
+} from "../db/daily-plans.js";
+import { generateDailyPlan } from "../ai/planner.js";
+import {
+  formatDailyPlan,
+  formatLivePlanMessage,
+  todayDateString,
+  getDayOfWeek,
+} from "../utils/format.js";
+import { isAdmin } from "../utils/auth.js";
 
 export function registerPlanCommand(bot: Bot): void {
-  bot.command('plan', async (ctx: Context) => {
+  bot.command("plan", async (ctx: Context) => {
     if (!isAdmin(ctx)) return;
 
     const today = todayDateString();
@@ -15,7 +24,7 @@ export function registerPlanCommand(bot: Bot): void {
     let plan = await getDailyPlan(today);
 
     if (!plan) {
-      await ctx.reply('Generation du plan en cours...');
+      await ctx.reply("Генерирую план...");
 
       const activeTasks = await getActiveTasks();
       const overdueTasks = await getOverdueTasks();
@@ -33,7 +42,7 @@ export function registerPlanCommand(bot: Bot): void {
         date: today,
         plan: planTasks,
         live_plan: livePlan,
-        status: 'active',
+        status: "active",
         review: null,
         productivity_score: null,
         revision_count: 0,
@@ -42,25 +51,25 @@ export function registerPlanCommand(bot: Bot): void {
     }
 
     const dayName = getDayOfWeek();
-    const dateFormatted = new Date().toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'long',
+    const dateFormatted = new Date().toLocaleDateString("ru-RU", {
+      day: "numeric",
+      month: "long",
     });
 
-    let message = `Plan du ${dayName} ${dateFormatted}\n\n`;
+    let message = `План на ${dayName} ${dateFormatted}\n\n`;
 
     // Show live plan if available, otherwise static plan
     if (plan.live_plan && plan.live_plan.length > 0) {
       message += formatLivePlanMessage(plan.live_plan);
       if (plan.revision_count > 0) {
-        message += `\nReorganise ${plan.revision_count} fois aujourd'hui.\n`;
+        message += `\nРеорганизован ${plan.revision_count} раз(а) сегодня.\n`;
       }
     } else {
       message += formatDailyPlan(plan.plan);
     }
 
-    message += '\nFenetre d\'or : 10h-15h. Protege-la.\n\n';
-    message += 'Si tu ne fais que les rouges, c\'est deja bien.';
+    message += "\nЗолотое окно: 10ч-15ч. Защищай его.\n\n";
+    message += "Если сделаешь хотя бы красные — уже хорошо.";
 
     await ctx.reply(message);
   });

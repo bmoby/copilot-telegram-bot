@@ -1,38 +1,42 @@
-import type { Bot, Context } from 'grammy';
+import type { Bot, Context } from "grammy";
 import {
   getNextTask,
   getActiveTasks,
   completeTask,
   createTask,
-} from '../db/tasks.js';
-import type { Task } from '../types/index.js';
-import { formatTask, formatTaskList } from '../utils/format.js';
-import { isAdmin } from '../utils/auth.js';
+} from "../db/tasks.js";
+import type { Task } from "../types/index.js";
+import { formatTask, formatTaskList } from "../utils/format.js";
+import { isAdmin } from "../utils/auth.js";
 
 export function registerTaskCommands(bot: Bot): void {
-  bot.command('next', async (ctx: Context) => {
+  bot.command("next", async (ctx: Context) => {
     if (!isAdmin(ctx)) return;
 
     const task = await getNextTask();
     if (!task) {
-      await ctx.reply('Aucune tache en attente. Profite de ce moment de calme !');
+      await ctx.reply("Нет задач в очереди. Наслаждайся моментом спокойствия!");
       return;
     }
 
-    const time = task.estimated_minutes ? `\nTemps estime : ${task.estimated_minutes} min` : '';
+    const time = task.estimated_minutes
+      ? `\nОценка времени: ${task.estimated_minutes} мин`
+      : "";
     await ctx.reply(
-      `➡️ Prochaine tache :\n\n${formatTask(task)}${time}\n\nJuste celle-la. Rien d'autre.\n\n/done quand c'est fait.`
+      `➡️ Следующая задача:\n\n${formatTask(task)}${time}\n\nТолько эта. Ничего больше.\n\n/done когда сделаешь.`,
     );
   });
 
-  bot.command('tasks', async (ctx: Context) => {
+  bot.command("tasks", async (ctx: Context) => {
     if (!isAdmin(ctx)) return;
 
     const tasks = await getActiveTasks();
-    await ctx.reply(`📋 Taches actives (${tasks.length}) :\n\n${formatTaskList(tasks)}`);
+    await ctx.reply(
+      `📋 Активные задачи (${tasks.length}):\n\n${formatTaskList(tasks)}`,
+    );
   });
 
-  bot.command('done', async (ctx: Context) => {
+  bot.command("done", async (ctx: Context) => {
     if (!isAdmin(ctx)) return;
 
     const arg = ctx.match?.toString().trim();
@@ -42,63 +46,67 @@ export function registerTaskCommands(bot: Bot): void {
     if (arg) {
       const index = parseInt(arg, 10);
       if (isNaN(index)) {
-        await ctx.reply('Usage : /done [numero] ou /done (pour la tache en cours)');
+        await ctx.reply(
+          "Использование: /done [номер] или /done (для текущей задачи)",
+        );
         return;
       }
       const tasks = await getActiveTasks();
       const task = tasks[index - 1];
       if (!task) {
-        await ctx.reply(`Tache #${index} introuvable.`);
+        await ctx.reply(`Задача #${index} не найдена.`);
         return;
       }
       completedTask = await completeTask(task.id);
     } else {
       const task = await getNextTask();
       if (!task) {
-        await ctx.reply('Aucune tache a completer.');
+        await ctx.reply("Нет задач для завершения.");
         return;
       }
       completedTask = await completeTask(task.id);
     }
 
     const next = await getNextTask();
-    let message = `✅ Fait : ${completedTask.title}\n\nBravo !`;
+    let message = `✅ Сделано: ${completedTask.title}\n\nМолодец!`;
 
     if (next) {
-      message += `\n\n➡️ Prochaine tache :\n${formatTask(next)}`;
+      message += `\n\n➡️ Следующая задача:\n${formatTask(next)}`;
     } else {
-      message += '\n\n🎉 Plus aucune tache ! Tu as tout fait.';
+      message += "\n\n🎉 Задач больше нет! Ты всё сделал.";
     }
 
     await ctx.reply(message);
   });
 
-  bot.command('add', async (ctx: Context) => {
+  bot.command("add", async (ctx: Context) => {
     if (!isAdmin(ctx)) return;
 
     const text = ctx.match?.toString().trim();
     if (!text) {
-      await ctx.reply('Usage : /add [description de la tache]');
+      await ctx.reply("Использование: /add [описание задачи]");
       return;
     }
 
     const task = await createTask({
       title: text,
-      source: 'telegram',
-      category: 'personal',
-      priority: 'normal',
-      status: 'todo',
+      source: "telegram",
+      category: "personal",
+      priority: "normal",
+      status: "todo",
     });
 
-    await ctx.reply(`✅ Tache ajoutee : ${task.title}\n\nCategorie : ${task.category}\nPriorite : ${task.priority}`);
+    await ctx.reply(
+      `✅ Задача добавлена: ${task.title}\n\nКатегория: ${task.category}\nПриоритет: ${task.priority}`,
+    );
   });
 
-  bot.command('skip', async (ctx: Context) => {
+  bot.command("skip", async (ctx: Context) => {
     if (!isAdmin(ctx)) return;
 
     const tasks = await getActiveTasks();
     if (tasks.length === 0) {
-      await ctx.reply('Aucune tache a passer.');
+      await ctx.reply("Нет задач для пропуска.");
       return;
     }
 
@@ -107,13 +115,15 @@ export function registerTaskCommands(bot: Bot): void {
 
     const remaining = tasks.filter((t) => t.id !== next.id);
     if (remaining.length === 0) {
-      await ctx.reply(`C'est ta seule tache. Courage ! /done quand c'est fait.`);
+      await ctx.reply(
+        `Это твоя единственная задача. Давай! /done когда сделаешь.`,
+      );
       return;
     }
 
     const nextAfterSkip = remaining[0]!;
     await ctx.reply(
-      `⏭️ Tache passee : ${next.title}\n\n➡️ Prochaine tache :\n${formatTask(nextAfterSkip)}`
+      `⏭️ Задача пропущена: ${next.title}\n\n➡️ Следующая задача:\n${formatTask(nextAfterSkip)}`,
     );
   });
 }

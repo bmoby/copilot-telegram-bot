@@ -1,7 +1,7 @@
-import { askClaude } from './client.js';
-import { getCoreMemory, getWorkingMemory, upsertMemory } from '../db/memory.js';
-import { config } from '../config.js';
-import { logger } from '../logger.js';
+import { askClaude } from "./client.js";
+import { getCoreMemory, getWorkingMemory, upsertMemory } from "../db/memory.js";
+import { config } from "../config.js";
+import { logger } from "../logger.js";
 
 // ---------- Onboarding steps ----------
 
@@ -13,106 +13,106 @@ interface OnboardingStep {
 
 const STEPS: OnboardingStep[] = [
   {
-    key: 'identity',
+    key: "identity",
     question:
-      `Salut ! Je suis ton ${config.botName} — ton assistant personnel intelligent.\n\n` +
-      `Avant de commencer, j'aimerais apprendre a te connaitre pour etre tout de suite efficace.\n\n` +
-      `Parle-moi de toi : comment tu t'appelles, ce que tu fais dans la vie, ta situation pro (freelance, salarie, etudiant...) ?`,
-    systemPrompt: `Tu analyses la reponse de l'utilisateur pour en extraire des informations d'identite.
-Extrais : prenom, metier/activite, situation professionnelle, competences mentionnees, personnalite visible.
+      `Привет! Я — твой ${config.botName}, твой личный умный ассистент.\n\n` +
+      `Перед тем как начать, я хочу узнать тебя получше, чтобы сразу быть полезным.\n\n` +
+      `Расскажи о себе: как тебя зовут, чем занимаешься, какая у тебя профессиональная ситуация (фриланс, наёмный, студент...)?`,
+    systemPrompt: `Ты анализируешь ответ пользователя, чтобы извлечь информацию о его личности.
+Извлеки: имя, профессия/деятельность, профессиональная ситуация, упомянутые навыки, видимые черты характера.
 
-Reponds UNIQUEMENT en JSON (pas de markdown) :
+Отвечай ТОЛЬКО в JSON (без markdown):
 {
   "memories": [
-    { "category": "identity", "key": "identifiant_court", "content": "description claire" }
+    { "category": "identity", "key": "короткий_идентификатор", "content": "понятное описание" }
   ],
-  "summary": "phrase courte confirmant ce que tu as compris"
+  "summary": "короткая фраза, подтверждающая, что ты понял"
 }
 
-Exemples de keys : "prenom", "metier", "situation_pro", "competences", "personnalite".
-Ne cree une entree que si l'info est clairement donnee. Pas d'invention.`,
+Примеры keys: "имя", "профессия", "ситуация_про", "навыки", "характер".
+Создавай запись только если инфо чётко дана. Не придумывай.`,
   },
   {
-    key: 'activities',
+    key: "activities",
     question:
-      `Top, je note !\n\n` +
-      `Maintenant, parle-moi de tes activites au quotidien. Quels types de taches tu fais regulierement ?\n` +
-      `(clients, cours, dev, creation de contenu, sport, admin, gestion d'equipe...)`,
-    systemPrompt: `Tu analyses la reponse de l'utilisateur pour en extraire ses activites quotidiennes et recurrentes.
-Extrais : types de taches, frequence, activites principales, activites secondaires.
+      `Отлично, записал!\n\n` +
+      `Теперь расскажи о своих ежедневных делах. Какие задачи ты делаешь регулярно?\n` +
+      `(клиенты, учёба, разработка, контент, спорт, админ, управление командой...)`,
+    systemPrompt: `Ты анализируешь ответ пользователя, чтобы извлечь его ежедневные и регулярные активности.
+Извлеки: типы задач, частота, основные активности, побочные активности.
 
-Reponds UNIQUEMENT en JSON (pas de markdown) :
+Отвечай ТОЛЬКО в JSON (без markdown):
 {
   "memories": [
-    { "category": "situation", "key": "identifiant_court", "content": "description claire" }
+    { "category": "situation", "key": "короткий_идентификатор", "content": "понятное описание" }
   ],
-  "summary": "phrase courte confirmant ce que tu as compris"
+  "summary": "короткая фраза, подтверждающая, что ты понял"
 }
 
-Exemples de keys : "activites_principales", "taches_recurrentes", "sport", "gestion_clients", "formation".
-Utilise la category "situation" pour les activites courantes, "identity" pour les traits permanents.
-Ne cree une entree que si l'info est clairement donnee.`,
+Примеры keys: "основные_активности", "регулярные_задачи", "спорт", "работа_с_клиентами", "обучение".
+Используй категорию "situation" для текущих активностей, "identity" для постоянных черт.
+Создавай запись только если инфо чётко дана.`,
   },
   {
-    key: 'challenges',
+    key: "challenges",
     question:
-      `Tres bien !\n\n` +
-      `Et c'est quoi tes plus grosses problematiques au quotidien ?\n` +
-      `(organisation, procrastination, trop de choses a gerer, difficulte a prioriser, oublis...)`,
-    systemPrompt: `Tu analyses la reponse de l'utilisateur pour en extraire ses problematiques et defis quotidiens.
-Extrais : problemes d'organisation, blocages, points faibles reconnus, besoins.
+      `Отлично!\n\n` +
+      `А какие у тебя главные сложности в повседневности?\n` +
+      `(организация, прокрастинация, слишком много дел, сложно расставить приоритеты, забываешь...)`,
+    systemPrompt: `Ты анализируешь ответ пользователя, чтобы извлечь его проблемы и ежедневные вызовы.
+Извлеки: проблемы с организацией, блокеры, признанные слабые стороны, потребности.
 
-Reponds UNIQUEMENT en JSON (pas de markdown) :
+Отвечай ТОЛЬКО в JSON (без markdown):
 {
   "memories": [
-    { "category": "identity|situation", "key": "identifiant_court", "content": "description claire" }
+    { "category": "identity|situation", "key": "короткий_идентификатор", "content": "понятное описание" }
   ],
-  "summary": "phrase courte empathique montrant que tu comprends"
+  "summary": "короткая эмпатичная фраза, показывающая, что ты понимаешь"
 }
 
-Exemples de keys : "probleme_organisation", "blocages", "points_faibles", "besoins_aide".
-Utilise "identity" pour les traits de caractere (ex: tendance a procrastiner), "situation" pour les problemes contextuels.`,
+Примеры keys: "проблема_организация", "блокеры", "слабые_стороны", "потребности_помощь".
+Используй "identity" для черт характера (напр.: склонность к прокрастинации), "situation" для контекстных проблем.`,
   },
   {
-    key: 'rhythm',
+    key: "rhythm",
     question:
-      `Je comprends, c'est exactement pour ca que je suis la !\n\n` +
-      `Parlons de ton rythme : tu es plutot du matin ou du soir ?\n` +
-      `C'est quoi tes horaires de travail ? Quand tu es le plus productif ?`,
-    systemPrompt: `Tu analyses la reponse de l'utilisateur pour en extraire son rythme de vie et ses horaires.
-Extrais : chronotype (matin/soir), horaires de travail, pics de productivite, habitudes.
+      `Понимаю, именно для этого я здесь!\n\n` +
+      `Поговорим о твоём ритме: ты скорее жаворонок или сова?\n` +
+      `Какой у тебя рабочий график? Когда ты наиболее продуктивен?`,
+    systemPrompt: `Ты анализируешь ответ пользователя, чтобы извлечь его ритм жизни и расписание.
+Извлеки: хронотип (утро/вечер), рабочие часы, пики продуктивности, привычки.
 
-Reponds UNIQUEMENT en JSON (pas de markdown) :
+Отвечай ТОЛЬКО в JSON (без markdown):
 {
   "memories": [
-    { "category": "preference|identity", "key": "identifiant_court", "content": "description claire" }
+    { "category": "preference|identity", "key": "короткий_идентификатор", "content": "понятное описание" }
   ],
-  "summary": "phrase courte confirmant le rythme compris"
+  "summary": "короткая фраза, подтверждающая понятый ритм"
 }
 
-Exemples de keys : "chronotype", "horaires_travail", "pic_productivite", "routine".
-Utilise "preference" pour les choix, "identity" pour les traits naturels.`,
+Примеры keys: "хронотип", "рабочие_часы", "пик_продуктивности", "распорядок".
+Используй "preference" для выборов, "identity" для природных черт.`,
   },
   {
-    key: 'expectations',
+    key: "expectations",
     question:
-      `Parfait !\n\n` +
-      `Derniere question : tu veux que je sois comment avec toi ?\n` +
-      `- Plutot strict et cadrant, ou souple et suggestif ?\n` +
-      `- Beaucoup de rappels ou juste l'essentiel ?\n` +
-      `- Un ton pro ou decontracte ?`,
-    systemPrompt: `Tu analyses la reponse de l'utilisateur pour en extraire ses preferences d'interaction avec le bot.
-Extrais : style de communication souhaite, frequence de notifications, niveau de rigueur voulu.
+      `Отлично!\n\n` +
+      `Последний вопрос: каким ты хочешь, чтобы я был?\n` +
+      `- Скорее строгий и организующий, или мягкий и предлагающий?\n` +
+      `- Много напоминаний или только самое важное?\n` +
+      `- Профессиональный тон или расслабленный?`,
+    systemPrompt: `Ты анализируешь ответ пользователя, чтобы извлечь его предпочтения по взаимодействию с ботом.
+Извлеки: желаемый стиль общения, частота уведомлений, желаемый уровень строгости.
 
-Reponds UNIQUEMENT en JSON (pas de markdown) :
+Отвечай ТОЛЬКО в JSON (без markdown):
 {
   "memories": [
-    { "category": "preference", "key": "identifiant_court", "content": "description claire" }
+    { "category": "preference", "key": "короткий_идентификатор", "content": "понятное описание" }
   ],
-  "summary": "phrase courte confirmant le style compris"
+  "summary": "короткая фраза, подтверждающая понятый стиль"
 }
 
-Exemples de keys : "style_communication", "frequence_rappels", "niveau_rigueur", "ton_prefere".`,
+Примеры keys: "стиль_общения", "частота_напоминаний", "уровень_строгости", "предпочитаемый_тон".`,
   },
 ];
 
@@ -129,7 +129,10 @@ const onboardingStates = new Map<string, OnboardingState>();
 
 export async function needsOnboarding(): Promise<boolean> {
   try {
-    const [core, working] = await Promise.all([getCoreMemory(), getWorkingMemory()]);
+    const [core, working] = await Promise.all([
+      getCoreMemory(),
+      getWorkingMemory(),
+    ]);
     const total = core.length + working.length;
 
     // If less than 3 memory entries, onboarding is needed
@@ -137,7 +140,16 @@ export async function needsOnboarding(): Promise<boolean> {
 
     // Check if we have basic identity info
     const hasIdentity = core.some(
-      (m) => m.category === 'identity' && ['prenom', 'metier', 'situation_pro'].includes(m.key)
+      (m) =>
+        m.category === "identity" &&
+        [
+          "имя",
+          "профессия",
+          "ситуация_про",
+          "prenom",
+          "metier",
+          "situation_pro",
+        ].includes(m.key),
     );
     return !hasIdentity;
   } catch {
@@ -165,11 +177,11 @@ export function startOnboarding(chatId: string): string {
 
 export async function processOnboardingResponse(
   chatId: string,
-  userMessage: string
+  userMessage: string,
 ): Promise<{ reply: string; done: boolean }> {
   const state = onboardingStates.get(chatId);
   if (!state || state.completed) {
-    return { reply: '', done: true };
+    return { reply: "", done: true };
   }
 
   const currentStep = STEPS[state.stepIndex]!;
@@ -179,13 +191,15 @@ export async function processOnboardingResponse(
     const response = await askClaude({
       prompt: userMessage,
       systemPrompt: currentStep.systemPrompt,
-      model: 'sonnet',
+      model: "sonnet",
       maxTokens: 1024,
     });
 
     let jsonString = response.trim();
-    if (jsonString.startsWith('```')) {
-      jsonString = jsonString.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '');
+    if (jsonString.startsWith("```")) {
+      jsonString = jsonString
+        .replace(/^```(?:json)?\s*/, "")
+        .replace(/\s*```$/, "");
     }
 
     const parsed = JSON.parse(jsonString) as {
@@ -200,12 +214,20 @@ export async function processOnboardingResponse(
     // Store extracted memories
     for (const mem of parsed.memories) {
       await upsertMemory({
-        category: mem.category as 'identity' | 'situation' | 'preference' | 'relationship' | 'lesson',
+        category: mem.category as
+          | "identity"
+          | "situation"
+          | "preference"
+          | "relationship"
+          | "lesson",
         key: mem.key,
         content: mem.content,
-        source: 'onboarding',
+        source: "onboarding",
       });
-      logger.info({ category: mem.category, key: mem.key }, 'Onboarding memory saved');
+      logger.info(
+        { category: mem.category, key: mem.key },
+        "Onboarding memory saved",
+      );
     }
 
     // Move to next step
@@ -218,13 +240,13 @@ export async function processOnboardingResponse(
 
       const doneMessage =
         `${parsed.summary}\n\n` +
-        `C'est bon, je te connais maintenant ! Je suis pret a t'aider.\n\n` +
-        `Tu peux me parler librement ou utiliser les commandes :\n` +
-        `/plan — Plan du jour\n` +
-        `/next — Prochaine tache\n` +
-        `/add [texte] — Ajouter une tache\n` +
-        `/tasks — Toutes les taches\n\n` +
-        `Dis-moi ce que tu veux faire.`;
+        `Готово, теперь я тебя знаю! Я готов помогать.\n\n` +
+        `Можешь писать мне свободно или использовать команды:\n` +
+        `/plan — План дня\n` +
+        `/next — Следующая задача\n` +
+        `/add [текст] — Добавить задачу\n` +
+        `/tasks — Все задачи\n\n` +
+        `Скажи, что хочешь сделать.`;
 
       return { reply: doneMessage, done: true };
     }
@@ -235,7 +257,10 @@ export async function processOnboardingResponse(
 
     return { reply, done: false };
   } catch (error) {
-    logger.error({ error, step: currentStep.key }, 'Onboarding step processing failed');
+    logger.error(
+      { error, step: currentStep.key },
+      "Onboarding step processing failed",
+    );
 
     // Don't block — skip to next step
     state.stepIndex++;
@@ -243,14 +268,14 @@ export async function processOnboardingResponse(
       state.completed = true;
       onboardingStates.delete(chatId);
       return {
-        reply: `Pas de souci, on peut commencer ! Tu peux toujours me parler de toi plus tard, j'apprendrai au fil du temps.\n\nDis-moi ce que tu veux faire.`,
+        reply: `Не проблема, можем начинать! Ты всегда можешь рассказать о себе позже, я буду учиться со временем.\n\nСкажи, что хочешь сделать.`,
         done: true,
       };
     }
 
     const nextStep = STEPS[state.stepIndex]!;
     return {
-      reply: `Bien note !\n\n${nextStep.question}`,
+      reply: `Записал!\n\n${nextStep.question}`,
       done: false,
     };
   }

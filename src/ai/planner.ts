@@ -1,37 +1,37 @@
-import { askClaude } from './client.js';
-import type { Task, DailyPlanTask } from '../types/index.js';
-import { config } from '../config.js';
-import { logger } from '../logger.js';
+import { askClaude } from "./client.js";
+import type { Task, DailyPlanTask } from "../types/index.js";
+import { config } from "../config.js";
+import { logger } from "../logger.js";
 
-const PLANNER_SYSTEM_PROMPT = `Tu es l'assistant personnel de {ownerName}, un copilote de productivite.
+const PLANNER_SYSTEM_PROMPT = `Ты — личный ассистент {ownerName}, копилот продуктивности.
 
-CONTEXTE :
-- Fenetre productive : 10h-15h (a proteger absolument pour le deep work)
-- Apres 15h : taches legeres seulement (reponses, reviews, planification)
-- Il fonctionne avec des objectifs concrets et des victoires rapides
-- Il est motive par la peur de perdre quelque chose et par la progression visible
-- Il est paralyse quand il a trop de choix → tu dois choisir pour lui
-- Il a besoin qu'on decide pour lui quand il hesite
+КОНТЕКСТ:
+- Продуктивное окно: 10ч-15ч (защищать любой ценой для глубокой работы)
+- После 15ч: только лёгкие задачи (ответы, ревью, планирование)
+- Он работает с конкретными целями и быстрыми победами
+- Его мотивирует страх что-то потерять и видимый прогресс
+- Его парализует, когда слишком много выбора → ты должен выбирать за него
+- Ему нужно, чтобы за него решали, когда он колеблется
 
-REGLES DE PRIORISATION :
-1. URGENT + deadline proche = en premier (slot "urgent", max 2-3)
-2. Taches qui debloquent d'autres personnes (equipe, clients, etudiants) = prioritaires
-3. Maximum 3 taches "urgent" par jour (sinon paralysie)
-4. TOUJOURS commencer par une tache rapide (<15 min) pour lancer la dynamique
-5. Apres 15h : taches legeres uniquement
-6. Si pas de sport depuis 3+ jours, integrer une session
-7. Total : 5-7 taches max par jour (pas plus)
+ПРАВИЛА ПРИОРИТИЗАЦИИ:
+1. СРОЧНОЕ + близкий дедлайн = в первую очередь (слот "urgent", макс 2-3)
+2. Задачи, которые разблокируют других (команда, клиенты, студенты) = приоритетные
+3. Максимум 3 задачи "urgent" в день (иначе паралич)
+4. ВСЕГДА начинать с быстрой задачи (<15 мин) для разгона
+5. После 15ч: только лёгкие задачи
+6. Если спорт не делался 3+ дня — включить тренировку
+7. Всего: 5-7 задач макс в день (не больше)
 
-FORMAT DE REPONSE :
-Tu dois repondre UNIQUEMENT en JSON valide, sans markdown, sans commentaire.
-Le JSON doit etre un tableau d'objets avec ces champs :
-- task_id: string (l'id de la tache)
+ФОРМАТ ОТВЕТА:
+Отвечай ТОЛЬКО валидным JSON, без markdown, без комментариев.
+JSON должен быть массивом объектов с полями:
+- task_id: string (id задачи)
 - title: string
 - category: string
 - priority: string
-- estimated_minutes: number ou null
+- estimated_minutes: number или null
 - time_slot: "urgent" | "important" | "optional"
-- order: number (1 = premiere tache a faire)`;
+- order: number (1 = первая задача)`;
 
 export async function generateDailyPlan(params: {
   activeTasks: Task[];
@@ -42,7 +42,7 @@ export async function generateDailyPlan(params: {
   const { activeTasks, overdueTasks, dayOfWeek, sportDoneRecently } = params;
 
   if (activeTasks.length === 0 && overdueTasks.length === 0) {
-    logger.info('No tasks to plan');
+    logger.info("No tasks to plan");
     return [];
   }
 
@@ -58,35 +58,43 @@ export async function generateDailyPlan(params: {
     notes: t.notes,
   }));
 
-  const prompt = `Aujourd'hui c'est ${dayOfWeek}.
-Sport fait recemment : ${sportDoneRecently ? 'Oui' : 'Non (3+ jours sans sport)'}
+  const prompt = `Сегодня ${dayOfWeek}.
+Спорт недавно: ${sportDoneRecently ? "Да" : "Нет (3+ дней без спорта)"}
 
-Voici toutes les taches actives et en retard :
+Вот все активные и просроченные задачи:
 ${JSON.stringify(tasksSummary, null, 2)}
 
-Genere le plan du jour. Rappel : max 5-7 taches, commence par une rapide.`;
+Сгенерируй план дня. Напоминание: макс 5-7 задач, начни с быстрой.`;
 
-  const systemPrompt = PLANNER_SYSTEM_PROMPT.replaceAll('{ownerName}', config.ownerName);
+  const systemPrompt = PLANNER_SYSTEM_PROMPT.replaceAll(
+    "{ownerName}",
+    config.ownerName,
+  );
 
   const response = await askClaude({
     prompt,
     systemPrompt,
-    model: 'sonnet',
+    model: "sonnet",
   });
 
   try {
     const parsed = JSON.parse(response) as DailyPlanTask[];
-    logger.info({ taskCount: parsed.length }, 'Daily plan generated');
+    logger.info({ taskCount: parsed.length }, "Daily plan generated");
     return parsed;
   } catch {
-    logger.error({ response }, 'Failed to parse daily plan from Claude');
+    logger.error({ response }, "Failed to parse daily plan from Claude");
     return allTasks.slice(0, 5).map((t, i) => ({
       task_id: t.id,
       title: t.title,
       category: t.category,
       priority: t.priority,
       estimated_minutes: t.estimated_minutes,
-      time_slot: i < 2 ? ('urgent' as const) : i < 4 ? ('important' as const) : ('optional' as const),
+      time_slot:
+        i < 2
+          ? ("urgent" as const)
+          : i < 4
+            ? ("important" as const)
+            : ("optional" as const),
       order: i + 1,
     }));
   }

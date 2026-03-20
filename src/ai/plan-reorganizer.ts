@@ -1,40 +1,44 @@
-import { askClaude } from './client.js';
-import { buildContext } from './context-builder.js';
-import { getDailyPlan, updateLivePlan, initLivePlanFromStatic } from '../db/daily-plans.js';
-import { getActiveTasks, getOverdueTasks } from '../db/tasks.js';
-import { generateDailyPlan } from './planner.js';
-import type { LivePlanTask } from '../types/index.js';
-import { config } from '../config.js';
-import { logger } from '../logger.js';
-import { todayDateString, getDayOfWeek } from '../utils/format.js';
+import { askClaude } from "./client.js";
+import { buildContext } from "./context-builder.js";
+import {
+  getDailyPlan,
+  updateLivePlan,
+  initLivePlanFromStatic,
+} from "../db/daily-plans.js";
+import { getActiveTasks, getOverdueTasks } from "../db/tasks.js";
+import { generateDailyPlan } from "./planner.js";
+import type { LivePlanTask } from "../types/index.js";
+import { config } from "../config.js";
+import { logger } from "../logger.js";
+import { todayDateString, getDayOfWeek } from "../utils/format.js";
 
-const REORGANIZER_PROMPT = `Tu es le reorganisateur de journee de {ownerName}.
+const REORGANIZER_PROMPT = `Ты — реорганизатор дня {ownerName}.
 
 {context}
 
-SITUATION : Un imprevu ou changement est survenu. Tu dois REORGANISER le reste de la journee.
+СИТУАЦИЯ: Произошло непредвиденное или изменение. Тебе нужно РЕОРГАНИЗОВАТЬ остаток дня.
 
-PLAN ACTUEL DU JOUR :
+ТЕКУЩИЙ ПЛАН ДНЯ:
 {livePlan}
 
-EVENEMENT DECLENCHEUR :
+СОБЫТИЕ-ТРИГГЕР:
 {trigger}
 
-HEURE ACTUELLE : {currentTime}
+ТЕКУЩЕЕ ВРЕМЯ: {currentTime}
 
-REGLES DE REORGANISATION :
-1. Les taches "done" ne changent PAS
-2. Les taches "in_progress" restent sauf si explicitement abandonnees
-3. Reordonne les taches "pending" selon la nouvelle realite
-4. Si l'utilisateur manque d'energie → mets les taches legeres en premier, reporte les lourdes
-5. Si un imprevu prend du temps → decale ou reporte les taches non-urgentes
-6. Si l'utilisateur veut faire autre chose → rappelle les urgences MAIS adapte-toi s'il insiste
-7. Maximum 2-3 reports par jour (sinon c'est de la procrastination, dis-le gentiment)
-8. Les taches urgentes avec deadline aujourd'hui ne peuvent PAS etre reportees (sauf cas de force majeure)
-9. Si tu reportes, mets la date de demain (ou le prochain jour ouvre)
-10. Recalcule l'ordre en fonction du temps restant dans la journee
+ПРАВИЛА РЕОРГАНИЗАЦИИ:
+1. Задачи "done" НЕ меняются
+2. Задачи "in_progress" остаются, если явно не отменены
+3. Переупорядочь задачи "pending" по новой реальности
+4. Если у пользователя нет энергии → лёгкие задачи вперёд, тяжёлые отложить
+5. Если непредвиденное занимает время → сдвинь или отложи несрочные задачи
+6. Если пользователь хочет заняться другим → напомни о срочном, НО адаптируйся, если настаивает
+7. Максимум 2-3 переноса в день (иначе это прокрастинация, скажи об этом мягко)
+8. Срочные задачи с дедлайном сегодня НЕ МОГУТ быть перенесены (кроме форс-мажора)
+9. При переносе ставь дату завтра (или следующий рабочий день)
+10. Пересчитай порядок с учётом оставшегося времени в дне
 
-FORMAT DE REPONSE (JSON strict) :
+ФОРМАТ ОТВЕТА (строгий JSON):
 {
   "reorganized_plan": [
     {
@@ -52,14 +56,14 @@ FORMAT DE REPONSE (JSON strict) :
       "skip_reason": "string" | null
     }
   ],
-  "explanation": "Explication courte (2-3 lignes) de ce qui a change et pourquoi",
+  "explanation": "Краткое объяснение (2-3 строки), что изменилось и почему",
   "warnings": ["string"]
 }
 
-IMPORTANT pour "warnings" :
-- Si des taches urgentes sont reportees, mets un warning
-- Si l'utilisateur reporte trop (3+), avertis gentiment
-- Si le plan devient irrealiste (trop de taches pour le temps restant), dis-le`;
+ВАЖНО для "warnings":
+- Если срочные задачи перенесены — добавь предупреждение
+- Если пользователь переносит слишком много (3+) — мягко предупреди
+- Если план стал нереалистичным (слишком много задач на оставшееся время) — скажи об этом`;
 
 export interface ReorganizeResult {
   livePlan: LivePlanTask[];
@@ -67,7 +71,9 @@ export interface ReorganizeResult {
   warnings: string[];
 }
 
-export async function reorganizePlan(trigger: string): Promise<ReorganizeResult> {
+export async function reorganizePlan(
+  trigger: string,
+): Promise<ReorganizeResult> {
   const today = todayDateString();
   let plan = await getDailyPlan(today);
 
@@ -82,12 +88,12 @@ export async function reorganizePlan(trigger: string): Promise<ReorganizeResult>
       sportDoneRecently: false,
     });
 
-    const { saveDailyPlan } = await import('../db/daily-plans.js');
+    const { saveDailyPlan } = await import("../db/daily-plans.js");
     plan = await saveDailyPlan({
       date: today,
       plan: planTasks,
       live_plan: initLivePlanFromStatic(planTasks),
-      status: 'active',
+      status: "active",
       review: null,
       productivity_score: null,
       revision_count: 0,
@@ -103,28 +109,38 @@ export async function reorganizePlan(trigger: string): Promise<ReorganizeResult>
 
   const context = await buildContext();
   const now = new Date();
-  const currentTime = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const currentTime = now.toLocaleTimeString("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   const livePlanStr = plan.live_plan
-    .map((t) => `  ${t.order}. [${t.status}] ${t.title} (${t.priority}, ${t.estimated_minutes ?? '?'} min)${t.scheduled_time ? ` @${t.scheduled_time}` : ''}${t.deferred_to ? ` → reporte ${t.deferred_to}` : ''}`)
-    .join('\n');
+    .map(
+      (t) =>
+        `  ${t.order}. [${t.status}] ${t.title} (${t.priority}, ${t.estimated_minutes ?? "?"} min)${t.scheduled_time ? ` @${t.scheduled_time}` : ""}${t.deferred_to ? ` → перенесено ${t.deferred_to}` : ""}`,
+    )
+    .join("\n");
 
-  const systemPrompt = REORGANIZER_PROMPT
-    .replaceAll('{ownerName}', config.ownerName)
-    .replace('{context}', context)
-    .replace('{livePlan}', livePlanStr)
-    .replace('{trigger}', trigger)
-    .replace('{currentTime}', currentTime);
+  const systemPrompt = REORGANIZER_PROMPT.replaceAll(
+    "{ownerName}",
+    config.ownerName,
+  )
+    .replace("{context}", context)
+    .replace("{livePlan}", livePlanStr)
+    .replace("{trigger}", trigger)
+    .replace("{currentTime}", currentTime);
 
   const response = await askClaude({
-    prompt: `Reorganise le plan du jour suite a cet evenement : ${trigger}`,
+    prompt: `Реорганизуй план дня в связи с этим событием: ${trigger}`,
     systemPrompt,
-    model: 'sonnet',
+    model: "sonnet",
   });
 
   let jsonString = response.trim();
-  if (jsonString.startsWith('```')) {
-    jsonString = jsonString.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '');
+  if (jsonString.startsWith("```")) {
+    jsonString = jsonString
+      .replace(/^```(?:json)?\s*/, "")
+      .replace(/\s*```$/, "");
   }
 
   try {
@@ -139,7 +155,7 @@ export async function reorganizePlan(trigger: string): Promise<ReorganizeResult>
 
     logger.info(
       { taskCount: newPlan.length, revision: (plan.revision_count ?? 0) + 1 },
-      'Plan reorganized'
+      "Plan reorganized",
     );
 
     return {
@@ -148,10 +164,13 @@ export async function reorganizePlan(trigger: string): Promise<ReorganizeResult>
       warnings: parsed.warnings ?? [],
     };
   } catch {
-    logger.error({ response: jsonString.slice(0, 500) }, 'Failed to parse reorganization response');
+    logger.error(
+      { response: jsonString.slice(0, 500) },
+      "Failed to parse reorganization response",
+    );
     return {
       livePlan: plan.live_plan,
-      explanation: 'Erreur lors de la reorganisation. Le plan reste inchange.',
+      explanation: "Ошибка при реорганизации. План остаётся без изменений.",
       warnings: [],
     };
   }
@@ -167,17 +186,17 @@ export async function syncTaskCompletion(taskId: string): Promise<void> {
   if (!plan?.live_plan) return;
 
   const taskInPlan = plan.live_plan.find((t) => t.task_id === taskId);
-  if (!taskInPlan || taskInPlan.status === 'done') return;
+  if (!taskInPlan || taskInPlan.status === "done") return;
 
   const updated = plan.live_plan.map((t) => {
     if (t.task_id !== taskId) return t;
     return {
       ...t,
-      status: 'done' as const,
+      status: "done" as const,
       completed_at: new Date().toISOString(),
     };
   });
 
   await updateLivePlan(today, updated);
-  logger.info({ taskId }, 'Live plan synced after task completion');
+  logger.info({ taskId }, "Live plan synced after task completion");
 }

@@ -1,10 +1,10 @@
-import type { Bot, Context } from 'grammy';
-import { isAdmin } from '../utils/auth.js';
-import { isVoiceMode, setVoiceMode } from '../utils/reply.js';
-import { logger } from '../logger.js';
+import type { Bot, Context } from "grammy";
+import { isAdmin } from "../utils/auth.js";
+import { isVoiceMode, setVoiceMode } from "../utils/reply.js";
+import { logger } from "../logger.js";
 
 export function registerVoiceCommand(bot: Bot): void {
-  bot.command('voice', async (ctx: Context) => {
+  bot.command("voice", async (ctx: Context) => {
     if (!isAdmin(ctx)) return;
 
     try {
@@ -14,13 +14,17 @@ export function registerVoiceCommand(bot: Bot): void {
       await setVoiceMode(newMode);
 
       if (newMode) {
-        await ctx.reply('🔊 Reponses vocales activees.\nJe te parlerai en vocal maintenant.\n\n/voice pour repasser en texte.');
+        await ctx.reply(
+          "🔊 Голосовые ответы включены.\nТеперь буду отвечать голосом.\n\n/voice чтобы вернуться к тексту.",
+        );
       } else {
-        await ctx.reply('🔇 Reponses vocales desactivees.\nJe reponds en texte maintenant.\n\n/voice pour reactiver le vocal.');
+        await ctx.reply(
+          "🔇 Голосовые ответы выключены.\nТеперь отвечаю текстом.\n\n/voice чтобы снова включить голос.",
+        );
       }
     } catch (error) {
-      logger.error({ error }, 'Failed to toggle voice mode');
-      await ctx.reply('Erreur lors du changement de mode. Reessaie.');
+      logger.error({ error }, "Failed to toggle voice mode");
+      await ctx.reply("Ошибка при переключении режима. Попробуй ещё раз.");
     }
   });
 }
