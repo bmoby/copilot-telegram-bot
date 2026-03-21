@@ -1,76 +1,81 @@
-import { askClaude } from './client.js';
-import { buildContext } from './context-builder.js';
-import { logger } from '../logger.js';
+import { askClaude } from "./client.js";
+import { buildContext } from "./context-builder.js";
+import { logger } from "../logger.js";
 
 export interface ResearchResult {
   content: string;
 }
 
-const RESEARCH_PROMPT = `Tu es un agent de recherche expert, sans limites dans ta profondeur d'analyse.
+const RESEARCH_PROMPT = `Ты — экспертный исследовательский агент, без ограничений в глубине анализа.
 
-SUJET :
+ТЕМА:
 {topic}
 
-DETAILS :
+ДЕТАЛИ:
 {details}
 
 {memory_context}
 
-TA MISSION :
-Produis un rapport de recherche COMPLET et APPROFONDI. Ne te retiens pas. Va au fond du sujet.
+ТВОЯ МИССИЯ:
+Создай ПОЛНЫЙ и ГЛУБОКИЙ исследовательский отчёт. Не сдерживайся. Копай до сути.
 
-- Explore TOUS les angles possibles du sujet
-- Fournis des donnees concretes, des chiffres, des statistiques recentes
-- Analyse les tendances actuelles, les evolutions, les perspectives
-- Cite des acteurs majeurs, des entreprises, des cas concrets
-- Compare differentes approches, methodologies, solutions
-- Identifie les risques, les opportunites, les points de vigilance
-- Donne des recommandations actionables et argumentees
-- N'hesite pas a aller en profondeur sur chaque sous-sujet
-- Utilise toutes tes connaissances, y compris les plus recentes
+- Исследуй ВСЕ возможные ракурсы темы
+- Приводи конкретные данные, цифры, актуальную статистику
+- Анализируй текущие тренды, развитие, перспективы
+- Упоминай ключевых игроков, компании, конкретные кейсы
+- Сравнивай различные подходы, методологии, решения
+- Выявляй риски, возможности, точки внимания
+- Давай практические и аргументированные рекомендации
+- Не стесняйся углубляться в каждую подтему
+- Используй все свои знания, включая самые свежие
 
-FORMAT :
-- Ecris en francais
-- Utilise des titres clairs avec des emojis pour la lisibilite
-- Paragraphes detailles, pas de bullet points generiques
-- Chaque section doit etre substantielle (pas juste 2 lignes)
-- Termine par des recommandations concretes et des sources
-- Ecris autant que necessaire, ne te limite PAS en longueur
+ФОРМАТ:
+- Пиши на русском языке
+- Используй чёткие заголовки с эмодзи для читаемости
+- Развёрнутые абзацы, не шаблонные буллет-поинты
+- Каждая секция должна быть содержательной (не просто 2 строки)
+- Заверши конкретными рекомендациями и источниками
+- Пиши столько, сколько нужно, НЕ ограничивай себя по объёму
 
-IMPORTANT : Reponds directement en texte structure. PAS de JSON. PAS de code. Juste le rapport.`;
+ВАЖНО: Отвечай прямо структурированным текстом. БЕЗ JSON. БЕЗ кода. Только отчёт.`;
 
 export async function runResearchAgent(params: {
   topic: string;
   details: string;
   includeMemory?: boolean;
 }): Promise<ResearchResult> {
-  logger.info({ topic: params.topic }, 'Starting research agent');
+  logger.info({ topic: params.topic }, "Starting research agent");
 
-  let memoryContext = '';
+  let memoryContext = "";
   if (params.includeMemory) {
     try {
       const context = await buildContext();
-      memoryContext = `CONTEXTE PERSONNEL (utilise si pertinent pour enrichir la recherche) :\n${context}`;
+      memoryContext = `ЛИЧНЫЙ КОНТЕКСТ (используй, если релевантно для обогащения исследования):\n${context}`;
     } catch (err) {
-      logger.warn({ err: err instanceof Error ? err.message : err }, 'Failed to build context for research');
+      logger.warn(
+        { err: err instanceof Error ? err.message : err },
+        "Failed to build context for research",
+      );
     }
   }
 
-  const prompt = RESEARCH_PROMPT
-    .replace('{topic}', params.topic)
-    .replace('{details}', params.details || 'Aucun detail supplementaire. Explore le sujet librement.')
-    .replace('{memory_context}', memoryContext);
+  const prompt = RESEARCH_PROMPT.replace("{topic}", params.topic)
+    .replace(
+      "{details}",
+      params.details || "Нет дополнительных деталей. Исследуй тему свободно.",
+    )
+    .replace("{memory_context}", memoryContext);
 
   const response = await askClaude({
-    prompt: `Fais une recherche approfondie et complete sur ce sujet. Ne te limite pas. Vas-y a fond.`,
+    prompt: `Проведи глубокое и полное исследование по этой теме. Не ограничивай себя. Давай на полную.`,
     systemPrompt: prompt,
-    model: 'sonnet',
+    model: "sonnet",
     maxTokens: 16000,
   });
 
   logger.info(
     { topic: params.topic, responseLength: response.length },
-    'Research agent completed'
+    "Research agent completed",
   );
 
   return { content: response };

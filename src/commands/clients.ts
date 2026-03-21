@@ -1,80 +1,90 @@
-import type { Bot, Context } from 'grammy';
-import { getClientPipeline, createClient, searchClientByName } from '../db/clients.js';
-import { isAdmin } from '../utils/auth.js';
+import type { Bot, Context } from "grammy";
+import {
+  getClientPipeline,
+  createClient,
+  searchClientByName,
+} from "../db/clients.js";
+import { isAdmin } from "../utils/auth.js";
 
 const STATUS_EMOJI: Record<string, string> = {
-  lead: '🔵',
-  qualified: '🟡',
-  proposal_sent: '📨',
-  accepted: '🟢',
-  in_progress: '🔧',
-  delivered: '📦',
-  paid: '✅',
+  lead: "🔵",
+  qualified: "🟡",
+  proposal_sent: "📨",
+  accepted: "🟢",
+  in_progress: "🔧",
+  delivered: "📦",
+  paid: "✅",
 };
 
 export function registerClientCommands(bot: Bot): void {
-  bot.command('clients', async (ctx: Context) => {
+  bot.command("clients", async (ctx: Context) => {
     if (!isAdmin(ctx)) return;
 
     const clients = await getClientPipeline();
     if (clients.length === 0) {
-      await ctx.reply('Aucun client dans le pipeline.');
+      await ctx.reply("Нет клиентов в воронке.");
       return;
     }
 
     const lines = clients.map((c) => {
-      const emoji = STATUS_EMOJI[c.status] ?? '⚪';
-      const need = c.need ? ` — ${c.need}` : '';
-      const budget = c.budget_range ? ` (${c.budget_range})` : '';
+      const emoji = STATUS_EMOJI[c.status] ?? "⚪";
+      const need = c.need ? ` — ${c.need}` : "";
+      const budget = c.budget_range ? ` (${c.budget_range})` : "";
       return `${emoji} ${c.name}${need}${budget} [${c.status}]`;
     });
 
-    await ctx.reply(`💼 Pipeline clients (${clients.length}) :\n\n${lines.join('\n')}`);
+    await ctx.reply(
+      `💼 Воронка клиентов (${clients.length}):\n\n${lines.join("\n")}`,
+    );
   });
 
-  bot.command('client', async (ctx: Context) => {
+  bot.command("client", async (ctx: Context) => {
     if (!isAdmin(ctx)) return;
 
     const name = ctx.match?.toString().trim();
     if (!name) {
-      await ctx.reply('Usage : /client [nom]');
+      await ctx.reply("Использование: /client [имя]");
       return;
     }
 
     const results = await searchClientByName(name);
     if (results.length === 0) {
-      await ctx.reply(`Aucun client trouve pour "${name}".`);
+      await ctx.reply(`Клиент "${name}" не найден.`);
       return;
     }
 
     const client = results[0]!;
-    const emoji = STATUS_EMOJI[client.status] ?? '⚪';
+    const emoji = STATUS_EMOJI[client.status] ?? "⚪";
 
     let message = `${emoji} ${client.name}\n`;
-    message += `Statut : ${client.status}\n`;
-    if (client.source) message += `Source : ${client.source}\n`;
-    if (client.business_type) message += `Metier : ${client.business_type}\n`;
-    if (client.need) message += `Besoin : ${client.need}\n`;
-    if (client.budget_range) message += `Budget : ${client.budget_range}\n`;
-    if (client.phone) message += `Tel : ${client.phone}\n`;
-    if (client.notes) message += `Notes : ${client.notes}\n`;
+    message += `Статус: ${client.status}\n`;
+    if (client.source) message += `Источник: ${client.source}\n`;
+    if (client.business_type) message += `Сфера: ${client.business_type}\n`;
+    if (client.need) message += `Потребность: ${client.need}\n`;
+    if (client.budget_range) message += `Бюджет: ${client.budget_range}\n`;
+    if (client.phone) message += `Тел: ${client.phone}\n`;
+    if (client.notes) message += `Заметки: ${client.notes}\n`;
 
     await ctx.reply(message);
   });
 
-  bot.command('newclient', async (ctx: Context) => {
+  bot.command("newclient", async (ctx: Context) => {
     if (!isAdmin(ctx)) return;
 
     const text = ctx.match?.toString().trim();
     if (!text) {
-      await ctx.reply('Usage : /newclient [nom] — [besoin] — [budget]');
+      await ctx.reply(
+        "Использование: /newclient [имя] — [потребность] — [бюджет]",
+      );
       return;
     }
 
-    const parts = text.split('—').map((p) => p.trim());
+    const parts = text.split("—").map((p) => p.trim());
     const name = parts[0];
     if (!name) {
-      await ctx.reply('Usage : /newclient [nom] — [besoin] — [budget]');
+      await ctx.reply(
+        "Использование: /newclient [имя] — [потребность] — [бюджет]",
+      );
       return;
     }
 
@@ -82,12 +92,12 @@ export function registerClientCommands(bot: Bot): void {
       name,
       need: parts[1] ?? null,
       budget_range: parts[2] ?? null,
-      source: 'telegram',
-      status: 'lead',
+      source: "telegram",
+      status: "lead",
     });
 
     await ctx.reply(
-      `✅ Nouveau lead cree :\n\n💼 ${client.name}\nBesoin : ${client.need ?? 'non precise'}\nBudget : ${client.budget_range ?? 'non precise'}\nStatut : lead`
+      `✅ Новый лид создан:\n\n💼 ${client.name}\nПотребность: ${client.need ?? "не указана"}\nБюджет: ${client.budget_range ?? "не указан"}\nСтатус: lead`,
     );
   });
 }
